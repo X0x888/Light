@@ -459,6 +459,31 @@
         .welcome-overlay {
             z-index: 1001; /* Above controls toggle */
         }
+
+        @media (max-width: 768px) {
+            #fullscreenBtn {
+                top: 20px;
+                right: 20px;
+                width: 44px;
+                height: 44px;
+                background: rgba(42, 42, 42, 0.8);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                backdrop-filter: blur(5px);
+                border: none;
+                color: white;
+                font-size: 20px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+                z-index: 998;
+            }
+            
+            #fullscreenBtn:active {
+                background: rgba(62, 62, 62, 0.9);
+                transform: scale(0.95);
+            }
+        }
     </style>
 </head>
 <body>
@@ -488,6 +513,9 @@
                 </button>
                 <button class="preset-btn" data-preset="sunset">
                     🌆 Sunset
+                </button>
+                <button class="preset-btn" data-preset="sos">
+                    🆘 SOS Signal
                 </button>
             </div>
 
@@ -618,6 +646,14 @@
                 beamRadius: 100,
                 beamAngle: 180,
                 flickerRate: 0
+            },
+            sos: {
+                brightness: 100,
+                temperature: 6500,  // Bright white light
+                intensity: 100,
+                beamRadius: 100,
+                beamAngle: 180,
+                flickerRate: 0  // We'll handle SOS pattern separately
             }
         };
 
@@ -736,18 +772,30 @@
         fullscreenBtn.addEventListener('click', toggleFullscreen);
 
         function toggleFullscreen() {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(err => {
-                    console.log(`Error attempting to enable fullscreen: ${err.message}`);
-                });
-                document.body.classList.add('fullscreen');
-                fullscreenBtn.textContent = '⛶ Exit Fullscreen';
+            if (!document.fullscreenElement && 
+                !document.webkitFullscreenElement && 
+                !document.mozFullScreenElement) {
+                
+                const docElm = document.documentElement;
+                if (docElm.requestFullscreen) {
+                    docElm.requestFullscreen();
+                } else if (docElm.webkitRequestFullscreen) {
+                    docElm.webkitRequestFullscreen();
+                } else if (docElm.mozRequestFullScreen) {
+                    docElm.mozRequestFullScreen();
+                } else if (docElm.msRequestFullscreen) {
+                    docElm.msRequestFullscreen();
+                }
             } else {
                 if (document.exitFullscreen) {
                     document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    document.mozCancelFullScreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
                 }
-                document.body.classList.remove('fullscreen');
-                fullscreenBtn.textContent = '⛶ Fullscreen';
             }
         }
 
@@ -865,7 +913,17 @@
         document.querySelectorAll('.preset-btn').forEach(button => {
             button.addEventListener('click', (e) => {
                 const presetName = e.target.dataset.preset;
-                applyPreset(presetName);
+                
+                // Clear existing SOS interval if any
+                if (sosInterval) {
+                    clearInterval(sosInterval);
+                }
+                
+                if (presetName === 'sos') {
+                    startSOSSignal();
+                } else {
+                    applyPreset(presetName);
+                }
             });
         });
 
@@ -1056,6 +1114,57 @@
                 });
             }
         });
+
+        // Add SOS functionality
+        let sosInterval;
+        function startSOSSignal() {
+            const morsePattern = [
+                400, 400, 400,           // S (...)
+                800, 800, 800,           // O (---)
+                400, 400, 400,           // S (...)
+                2000                     // Gap between sequences
+            ];
+            
+            let currentIndex = 0;
+            let isLightOn = false;
+            
+            // Apply SOS preset settings first
+            applyPreset('sos');
+            
+            clearInterval(sosInterval);
+            sosInterval = setInterval(() => {
+                isLightOn = !isLightOn;
+                
+                if (isLightOn) {
+                    lightDisplay.style.filter = 'brightness(1.2)';
+                } else {
+                    lightDisplay.style.filter = 'brightness(0)';
+                }
+                
+                setTimeout(() => {
+                    currentIndex = (currentIndex + 1) % morsePattern.length;
+                }, morsePattern[currentIndex]);
+            }, 400);
+        }
+
+        // Handle fullscreen changes
+        document.addEventListener('fullscreenchange', updateFullscreenButton);
+        document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+        document.addEventListener('mozfullscreenchange', updateFullscreenButton);
+        document.addEventListener('MSFullscreenChange', updateFullscreenButton);
+
+        function updateFullscreenButton() {
+            const isFullscreen = document.fullscreenElement || 
+                                document.webkitFullscreenElement || 
+                                document.mozFullScreenElement || 
+                                document.msFullscreenElement;
+            
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
+            fullscreenBtn.innerHTML = isFullscreen ? '⤓' : '⤢';
+            fullscreenBtn.setAttribute('aria-label', 
+                isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'
+            );
+        }
     </script>
 </body>
 </html> 

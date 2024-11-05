@@ -926,7 +926,7 @@
                 // Initialize controls in hidden state
                 controlsWrapper.style.transform = 'translateY(100%)';
                 
-                // Create a more intuitive mobile toggle button
+                // Create toggle button (keep for accessibility)
                 const controlsToggle = document.createElement('button');
                 controlsToggle.className = 'controls-toggle';
                 controlsToggle.innerHTML = `
@@ -938,83 +938,115 @@
                 `;
                 document.body.appendChild(controlsToggle);
 
-                // Add swipe handling
+                // Swipe handling variables
                 let startY = 0;
+                let startX = 0;
                 let currentY = 0;
                 let isDragging = false;
+                let isControlsVisible = false;
+                let swipeStartTime = 0;
 
-                // Touch event handlers
-                controlsWrapper.addEventListener('touchstart', handleTouchStart, { passive: true });
-                controlsWrapper.addEventListener('touchmove', handleTouchMove, { passive: false });
-                controlsWrapper.addEventListener('touchend', handleTouchEnd, { passive: true });
+                // Add touch handlers to the entire document
+                document.addEventListener('touchstart', handleTouchStart, { passive: true });
+                document.addEventListener('touchmove', handleTouchMove, { passive: false });
+                document.addEventListener('touchend', handleTouchEnd, { passive: true });
 
-                // Handle touch start
                 function handleTouchStart(e) {
                     startY = e.touches[0].clientY;
-                    isDragging = true;
-                    controlsWrapper.style.transition = 'none';
-                }
-
-                // Handle touch move
-                function handleTouchMove(e) {
-                    if (!isDragging) return;
+                    startX = e.touches[0].clientX;
+                    swipeStartTime = Date.now();
                     
-                    currentY = e.touches[0].clientY;
-                    const deltaY = currentY - startY;
-                    
-                    // Only allow dragging down when panel is open
-                    if (controlsWrapper.classList.contains('visible') && deltaY > 0) {
-                        const transform = Math.min(deltaY, controlsWrapper.offsetHeight);
-                        controlsWrapper.style.transform = `translateY(${transform}px)`;
-                        e.preventDefault();
+                    // Only start dragging if we're not interacting with controls
+                    if (!isControlsVisible || e.target.closest('.controls-wrapper')) {
+                        isDragging = true;
+                        controlsWrapper.style.transition = 'none';
                     }
                 }
 
-                // Handle touch end
-                function handleTouchEnd() {
+                function handleTouchMove(e) {
+                    if (!isDragging) return;
+
+                    currentY = e.touches[0].clientY;
+                    const currentX = e.touches[0].clientX;
+                    const deltaY = startY - currentY;
+                    const deltaX = Math.abs(startX - currentX);
+
+                    // Check if vertical swipe (ignore if more horizontal)
+                    if (deltaX < Math.abs(deltaY)) {
+                        // Swipe up
+                        if (deltaY > 0 && !isControlsVisible) {
+                            const transform = Math.max(100 - deltaY, 0);
+                            controlsWrapper.style.transform = `translateY(${transform}%)`;
+                            e.preventDefault();
+                        }
+                        // Swipe down when controls are visible
+                        else if (deltaY < 0 && isControlsVisible) {
+                            const transform = Math.max(-deltaY, 0);
+                            controlsWrapper.style.transform = `translateY(${transform}px)`;
+                            e.preventDefault();
+                        }
+                    }
+                }
+
+                function handleTouchEnd(e) {
                     if (!isDragging) return;
                     
                     isDragging = false;
+                    const deltaY = startY - currentY;
+                    const swipeTime = Date.now() - swipeStartTime;
+                    const swipeSpeed = Math.abs(deltaY) / swipeTime;
+                    
                     controlsWrapper.style.transition = 'transform 0.3s ease';
-                    
-                    const deltaY = currentY - startY;
-                    
-                    if (deltaY > 70) { // Threshold for closing
+
+                    // Quick swipe threshold
+                    const isQuickSwipe = swipeSpeed > 0.5;
+                    // Distance threshold
+                    const isSignificantSwipe = Math.abs(deltaY) > 50;
+
+                    if ((deltaY > 0 && (isQuickSwipe || isSignificantSwipe)) && !isControlsVisible) {
+                        openControls();
+                    } else if ((deltaY < 0 && (isQuickSwipe || isSignificantSwipe)) && isControlsVisible) {
                         closeControls();
                     } else {
-                        openControls();
+                        // Return to previous state if swipe wasn't significant
+                        if (isControlsVisible) {
+                            openControls();
+                        } else {
+                            closeControls();
+                        }
                     }
                 }
 
-                // Open controls panel
                 function openControls() {
                     controlsWrapper.style.transform = 'translateY(0)';
                     controlsWrapper.classList.add('visible');
                     controlsToggle.classList.add('active');
+                    isControlsVisible = true;
                 }
 
-                // Close controls panel
                 function closeControls() {
                     controlsWrapper.style.transform = 'translateY(100%)';
                     controlsWrapper.classList.remove('visible');
                     controlsToggle.classList.remove('active');
+                    isControlsVisible = false;
                 }
 
-                // Toggle button click handler
+                // Keep button click handler for accessibility
                 controlsToggle.addEventListener('click', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     
-                    if (controlsWrapper.classList.contains('visible')) {
+                    if (isControlsVisible) {
                         closeControls();
                     } else {
                         openControls();
                     }
                 });
 
-                // Optimize slider interaction
+                // Prevent swipe on sliders
                 document.querySelectorAll('input[type="range"]').forEach(slider => {
-                    slider.addEventListener('touchstart', () => {
+                    slider.addEventListener('touchstart', (e) => {
+                        e.stopPropagation();
                         slider.classList.add('active');
                     });
                     

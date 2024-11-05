@@ -364,25 +364,23 @@
 
             .controls-wrapper {
                 position: fixed;
-                bottom: -100%;
+                bottom: 0;
                 left: 0;
                 width: 100%;
+                transform: translateY(100%);
                 transition: transform 0.3s ease;
-                padding: 20px;
-                box-sizing: border-box;
+                z-index: 999;
             }
 
             .controls-wrapper.visible {
-                transform: translateY(-100%);
+                transform: translateY(0);
             }
 
             .controls {
                 background: rgba(42, 42, 42, 0.95);
                 border-radius: 15px 15px 0 0;
                 padding: 20px;
-                backdrop-filter: blur(10px);
-                max-height: 80vh;
-                overflow-y: auto;
+                margin: 0;
                 box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
             }
 
@@ -414,6 +412,16 @@
                 font-size: 14px;
                 color: rgba(255, 255, 255, 0.9);
             }
+
+            /* Hide initial controls hint on mobile */
+            .controls-hint {
+                display: none !important;
+            }
+
+            /* Prevent any flickering */
+            * {
+                -webkit-tap-highlight-color: transparent;
+            }
         }
 
         /* Hide mobile elements on desktop */
@@ -421,6 +429,11 @@
             .controls-toggle {
                 display: none;
             }
+        }
+
+        /* Ensure welcome overlay works properly on mobile */
+        .welcome-overlay {
+            z-index: 1001; /* Above controls toggle */
         }
     </style>
 </head>
@@ -884,9 +897,13 @@
         document.addEventListener('DOMContentLoaded', () => {
             const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
             const controlsWrapper = document.querySelector('.controls-wrapper');
+            const welcomeOverlay = document.getElementById('welcomeOverlay');
 
             if (isMobile) {
-                // Create and style mobile toggle button
+                // Prevent default controls behavior
+                controlsWrapper.style.transform = 'translateY(100%)';
+                
+                // Create mobile toggle button
                 const controlsToggle = document.createElement('button');
                 controlsToggle.className = 'controls-toggle';
                 controlsToggle.innerHTML = `
@@ -895,30 +912,45 @@
                 `;
                 document.body.appendChild(controlsToggle);
 
-                // Disable desktop auto-hide behavior
+                // Disable desktop behaviors
                 if (typeof controlsTimeout !== 'undefined') {
                     clearTimeout(controlsTimeout);
                 }
+                if (typeof showControlsHint === 'function') {
+                    showControlsHint = () => {}; // Disable default hint
+                }
 
-                // Mobile-specific controls handling
+                // Improved mobile controls handling
                 controlsToggle.addEventListener('click', (e) => {
+                    e.preventDefault();
                     e.stopPropagation();
-                    controlsWrapper.classList.toggle('visible');
-                    controlsToggle.classList.toggle('active');
+                    
+                    if (controlsWrapper.classList.contains('visible')) {
+                        controlsWrapper.style.transform = 'translateY(100%)';
+                        controlsWrapper.classList.remove('visible');
+                        controlsToggle.classList.remove('active');
+                    } else {
+                        controlsWrapper.style.transform = 'translateY(0)';
+                        controlsWrapper.classList.add('visible');
+                        controlsToggle.classList.add('active');
+                    }
                 });
 
-                // Close controls when tapping outside
+                // Handle outside clicks
                 document.addEventListener('click', (e) => {
                     if (!controlsWrapper.contains(e.target) && 
                         !controlsToggle.contains(e.target) && 
                         controlsWrapper.classList.contains('visible')) {
+                        controlsWrapper.style.transform = 'translateY(100%)';
                         controlsWrapper.classList.remove('visible');
                         controlsToggle.classList.remove('active');
                     }
                 });
 
-                // Prevent controls from showing on hover
+                // Prevent any default hover behaviors
                 document.removeEventListener('mousemove', showControls);
+                controlsWrapper.removeEventListener('mouseenter', showControls);
+                controlsWrapper.removeEventListener('mouseleave', hideControls);
             }
         });
     </script>

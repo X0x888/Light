@@ -598,6 +598,144 @@
                 fullscreenBtn.classList.add('not-supported');
             }
         });
+
+        // Update the touch handling in your mobile detection code
+        if (isMobile) {
+            let startY = 0;
+            let currentY = 0;
+            let isDragging = false;
+            let isScrollingContent = false;
+            let initialScrollTop = 0;
+
+            function handleTouchStart(e) {
+                const controls = document.querySelector('.controls');
+                const touch = e.touches[0];
+                startY = touch.clientY;
+                
+                if (isControlsVisible && controls.contains(e.target)) {
+                    // Check if we're at the top of the scroll
+                    initialScrollTop = controls.scrollTop;
+                    isScrollingContent = true;
+                }
+                
+                isDragging = true;
+                controlsWrapper.style.transition = 'none';
+            }
+
+            function handleTouchMove(e) {
+                if (!isDragging) return;
+
+                const touch = e.touches[0];
+                currentY = touch.clientY;
+                const deltaY = currentY - startY;
+                const controls = document.querySelector('.controls');
+
+                // If we're scrolling content within the controls panel
+                if (isScrollingContent) {
+                    if (controls.scrollTop === 0 && deltaY > 0) {
+                        // Only prevent default if we're at the top and trying to pull down
+                        e.preventDefault();
+                        if (deltaY > 20) { // Add some threshold before starting to drag
+                            isScrollingContent = false;
+                        }
+                    } else {
+                        // Allow normal scrolling
+                        return;
+                    }
+                }
+
+                // Handle panel dragging
+                if (isControlsVisible && !isScrollingContent) {
+                    if (deltaY > 0) { // Dragging down
+                        const transform = Math.max(0, deltaY);
+                        controlsWrapper.style.transform = `translateY(${transform}px)`;
+                        e.preventDefault();
+                    }
+                } else if (!isControlsVisible) {
+                    // Opening the panel
+                    if (deltaY < 0) { // Dragging up
+                        const transform = Math.max(100 + (deltaY / 2), 0);
+                        controlsWrapper.style.transform = `translateY(${transform}%)`;
+                        e.preventDefault();
+                    }
+                }
+            }
+
+            function handleTouchEnd(e) {
+                if (!isDragging) return;
+                
+                isDragging = false;
+                isScrollingContent = false;
+                controlsWrapper.style.transition = 'transform 0.3s ease';
+
+                const deltaY = currentY - startY;
+                const controls = document.querySelector('.controls');
+
+                // Add velocity detection
+                const velocity = Math.abs(deltaY) / 100;
+                const threshold = velocity > 1 ? 50 : 100; // Lower threshold for faster swipes
+
+                if (isControlsVisible) {
+                    if (deltaY > threshold && !controls.contains(e.target)) {
+                        closeControls();
+                    } else {
+                        openControls(); // Snap back if threshold not met
+                    }
+                } else {
+                    if (deltaY < -threshold) {
+                        openControls();
+                    } else {
+                        closeControls(); // Snap back if threshold not met
+                    }
+                }
+            }
+
+            // Add CSS to improve scrolling experience
+            const styleSheet = document.createElement("style");
+            styleSheet.textContent = `
+                @media (max-width: 768px) {
+                    .controls {
+                        max-height: 80vh;
+                        overflow-y: auto;
+                        -webkit-overflow-scrolling: touch;
+                        overscroll-behavior: contain;
+                        padding-bottom: env(safe-area-inset-bottom, 20px);
+                    }
+
+                    .controls::-webkit-scrollbar {
+                        width: 6px;
+                    }
+
+                    .controls::-webkit-scrollbar-thumb {
+                        background: rgba(255, 255, 255, 0.2);
+                        border-radius: 3px;
+                    }
+
+                    /* Add visual feedback for pull-to-close */
+                    .controls::before {
+                        content: '';
+                        display: block;
+                        width: 40px;
+                        height: 4px;
+                        background: rgba(255, 255, 255, 0.3);
+                        border-radius: 2px;
+                        margin: -10px auto 15px;
+                        transition: width 0.3s ease;
+                    }
+
+                    .controls.dragging::before {
+                        width: 50px;
+                        background: rgba(255, 255, 255, 0.5);
+                    }
+                }
+            `;
+            document.head.appendChild(styleSheet);
+
+            // Add touch event listeners
+            document.addEventListener('touchstart', handleTouchStart, { passive: true });
+            document.addEventListener('touchmove', handleTouchMove, { passive: false });
+            document.addEventListener('touchend', handleTouchEnd, { passive: true });
+        }
     </style>
 </head>
 <body>

@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Light Control App</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #1a1a1a;
+            color: white;
+            min-height: 100vh;
+        }
+
+        .light-display {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            transition: all 0.3s ease;
+            z-index: 1;
+        }
+
+        .controls-wrapper {
+            position: fixed;
+            bottom: -150%;
+            left: 0;
+            width: 100%;
+            z-index: 2;
+            padding: 20px;
+            box-sizing: border-box;
+            transition: bottom 0.3s ease-in-out;
+            pointer-events: none;
+        }
+
+        .controls-wrapper.visible {
+            bottom: 0;
+            pointer-events: all;
+        }
+
+        .controls-indicator {
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px 30px;
+            background-color: rgba(42, 42, 42, 0.6);
+            border-radius: 15px 15px 0 0;
+            backdrop-filter: blur(10px);
+            z-index: 2;
+            transition: all 0.3s ease-in-out;
+            cursor: pointer;
+        }
+
+        .controls-indicator::after {
+            content: '';
+            display: block;
+            width: 40px;
+            height: 4px;
+            background-color: rgba(255, 255, 255, 0.5);
+            border-radius: 2px;
+            margin: 0 auto;
+        }
+
+        .controls-indicator:hover {
+            padding-bottom: 12px;
+            background-color: rgba(62, 62, 62, 0.8);
+        }
+
+        .controls-indicator.hidden {
+            opacity: 0.3;
+            transform: translateX(-50%) translateY(50%);
+        }
+
+        .controls-indicator.hidden:hover {
+            opacity: 1;
+        }
+
+        .controls {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: rgba(42, 42, 42, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin-bottom: 10px;
+            height: 8px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        input[type="range"]:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+        }
+
+        .value-display {
+            font-size: 0.9em;
+            color: #888;
+        }
+
+        #fullscreenBtn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 3;
+            padding: 10px 20px;
+            background-color: rgba(42, 42, 42, 0.9);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+        }
+
+        #fullscreenBtn:hover {
+            background-color: rgba(62, 62, 62, 0.9);
+        }
+
+        /* Hide controls in fullscreen mode */
+        .fullscreen .controls-wrapper,
+        .fullscreen #fullscreenBtn {
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .fullscreen:hover .controls-wrapper,
+        .fullscreen:hover #fullscreenBtn {
+            opacity: 1;
+        }
+
+        .presets {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .preset-btn {
+            padding: 8px 15px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 20px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9em;
+        }
+
+        .preset-btn:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .preset-btn.active {
+            background-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+        }
+
+        .welcome-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+
+        .welcome-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .welcome-content {
+            background: rgba(42, 42, 42, 0.9);
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 600px;
+            width: 90%;
+            text-align: center;
+            color: white;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+        }
+
+        .welcome-content h1 {
+            margin: 0 0 10px 0;
+            font-size: 2em;
+        }
+
+        .welcome-content p {
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 30px;
+        }
+
+        .quick-start {
+            margin: 30px 0;
+        }
+
+        .purpose-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .purpose-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            padding: 15px;
+            border-radius: 10px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .purpose-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .purpose-description {
+            font-size: 0.8em;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .instructions {
+            text-align: left;
+            margin: 30px 0;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        .instructions ul {
+            margin: 0;
+            padding-left: 20px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .instructions li {
+            margin: 10px 0;
+        }
+
+        .start-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 20px 0;
+        }
+
+        .start-btn:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        .dont-show {
+            display: block;
+            margin-top: 15px;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.9em;
+        }
+
+        /* Add a hint for controls */
+        .controls-hint {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px 20px;
+            border-radius: 20px;
+            color: white;
+            font-size: 0.9em;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .controls-hint.visible {
+            opacity: 1;
+        }
+
+        /* Add these mobile-specific styles */
+        @media (max-width: 768px) {
+            .controls-wrapper {
+                bottom: -200%;
+            }
+
+            .controls-toggle {
+                display: block;
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(42, 42, 42, 0.9);
+                padding: 12px 25px;
+                border-radius: 25px;
+                color: white;
+                border: none;
+                z-index: 1000;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+                backdrop-filter: blur(10px);
+            }
+
+            input[type="range"] {
+                height: 30px;
+                margin: 15px 0;
+            }
+
+            input[type="range"]::-webkit-slider-thumb {
+                width: 28px;
+                height: 28px;
+            }
+
+            .controls {
+                padding: 20px;
+                margin-bottom: env(safe-area-inset-bottom);
+            }
+        }
+
+        /* Hide mobile elements on desktop */
+        .controls-toggle {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="lightDisplay" class="light-display"></div>
+    
+    <button id="fullscreenBtn">⛶ Fullscreen</button>
+
+    <div class="controls-indicator"></div>
+
+    <div class="controls-wrapper">
+        <div class="controls">
+            <div class="presets">
+                <button class="preset-btn" data-preset="reading">
+                    📚 Reading
+                </button>
+                <button class="preset-btn" data-preset="video">
+                    📹 Video Light
+                </button>
+                <button class="preset-btn" data-preset="warm">
+                    🌅 Warm Ambient
+                </button>
+                <button class="preset-btn" data-preset="cool">
+                    ❄️ Cool Light
+                </button>
+                <button class="preset-btn" data-preset="candlelight">
+                    🕯️ Candle Effect
+                </button>
+                <button class="preset-btn" data-preset="sunset">
+                    🌆 Sunset
+                </button>
+            </div>
+
+            <div class="control-group">
+                <label for="brightness">Brightness: <span id="brightnessValue" class="value-display">50%</span></label>
+                <input type="range" id="brightness" min="0" max="100" value="50">
+            </div>
+
+            <div class="control-group">
+                <label for="temperature">Color Temperature: <span id="temperatureValue" class="value-display">5500K</span></label>
+                <input type="range" id="temperature" min="1000" max="10000" value="5500" step="100">
+            </div>
+
+            <div class="control-group">
+                <label for="intensity">Intensity: <span id="intensityValue" class="value-display">50%</span></label>
+                <input type="range" id="intensity" min="0" max="100" value="50">
+            </div>
+
+            <div class="control-group">
+                <label for="beamRadius">Beam Radius: <span id="beamRadiusValue" class="value-display">50%</span></label>
+                <input type="range" id="beamRadius" min="0" max="100" value="50">
+            </div>
+
+            <div class="control-group">
+                <label for="beamAngle">Beam Angle: <span id="beamAngleValue" class="value-display">180°</span></label>
+                <input type="range" id="beamAngle" min="0" max="360" value="180">
+            </div>
+
+            <div class="control-group">
+                <label for="flickerRate">Flicker Rate: <span id="flickerRateValue" class="value-display">0 Hz</span></label>
+                <input type="range" id="flickerRate" min="0" max="30" value="0" step="0.1">
+            </div>
+        </div>
+    </div>
+
+    <div id="welcomeOverlay" class="welcome-overlay">
+        <div class="welcome-content">
+            <h1>🌟 Welcome to LightSource</h1>
+            <p>Your browser-based lighting solution</p>
+            
+            <div class="quick-start">
+                <h2>What would you like to do?</h2>
+                <div class="purpose-buttons">
+                    <button class="purpose-btn" data-preset="reading">
+                        📚 Reading Light
+                        <span class="purpose-description">Optimal brightness for reading</span>
+                    </button>
+                    <button class="purpose-btn" data-preset="video">
+                        📹 Video Recording
+                        <span class="purpose-description">Perfect for short videos</span>
+                    </button>
+                    <button class="purpose-btn" data-preset="warm">
+                        🌅 Ambient Light
+                        <span class="purpose-description">Cozy atmosphere</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="instructions">
+                <h3>💡 Quick Tips:</h3>
+                <ul>
+                    <li>Move your mouse to the bottom to show controls</li>
+                    <li>Click ⛶ for fullscreen mode</li>
+                    <li>Use presets or adjust sliders for custom lighting</li>
+                </ul>
+            </div>
+
+            <button id="startButton" class="start-btn">Get Started</button>
+            <label class="dont-show">
+                <input type="checkbox" id="dontShowAgain"> Don't show this again
+            </label>
+        </div>
+    </div>
+
+    <script>
+        const lightDisplay = document.getElementById('lightDisplay');
+        let flickerInterval;
+        let controlsTimeout;
+        const controlsWrapper = document.querySelector('.controls-wrapper');
+        const controlsIndicator = document.querySelector('.controls-indicator');
+        let isControlsVisible = false;
+
+        const presets = {
+            reading: {
+                brightness: 85,
+                temperature: 4900,  // Slightly warmer than daylight
+                intensity: 90,
+                beamRadius: 100,
+                beamAngle: 180,
+                flickerRate: 0
+            },
+            video: {
+                brightness: 100,
+                temperature: 5200,  // Professional video light
+                intensity: 95,
+                beamRadius: 100,
+                beamAngle: 180,
+                flickerRate: 0
+            },
+            warm: {
+                brightness: 70,
+                temperature: 2900,  // Enhanced warm white
+                intensity: 80,
+                beamRadius: 100,
+                beamAngle: 180,
+                flickerRate: 0
+            },
+            cool: {
+                brightness: 85,
+                temperature: 6200,  // Natural cool white
+                intensity: 85,
+                beamRadius: 100,
+                beamAngle: 180,
+                flickerRate: 0
+            },
+            candlelight: {
+                brightness: 45,
+                temperature: 2200,  // Warmer candlelight
+                intensity: 60,
+                beamRadius: 70,
+                beamAngle: 180,
+                flickerRate: 4
+            },
+            sunset: {
+                brightness: 60,
+                temperature: 2700,  // Enhanced sunset glow
+                intensity: 70,
+                beamRadius: 100,
+                beamAngle: 180,
+                flickerRate: 0
+            }
+        };
+
+        function kelvinToRGB(kelvin) {
+            // Temperature bounds
+            kelvin = Math.max(1000, Math.min(40000, kelvin));
+            
+            let temp = kelvin / 100;
+            let red, green, blue;
+
+            // More natural red transition
+            if (temp <= 66) {
+                red = 255;
+            } else {
+                red = temp - 60;
+                red = 329.698727446 * Math.pow(red, -0.1332047592);
+                red = Math.max(0, Math.min(255, red));
+            }
+
+            // Improved green transition
+            if (temp <= 66) {
+                green = temp;
+                green = 99.4708025861 * Math.log(green) - 161.1195681661;
+            } else {
+                green = temp - 60;
+                green = 288.1221695283 * Math.pow(green, -0.0755148492);
+            }
+            green = Math.max(0, Math.min(255, green));
+
+            // Enhanced blue transition
+            if (temp >= 66) {
+                blue = 255;
+            } else if (temp <= 19) {
+                blue = 0;
+            } else {
+                blue = temp - 10;
+                blue = 138.5177312231 * Math.log(blue) - 305.0447927307;
+                blue = Math.max(0, Math.min(255, blue));
+            }
+
+            // Color enhancement
+            const brightness = Math.max(red, green, blue) / 255;
+            const saturation = 0.8; // Adjust this value to change color vividness (0-1)
+
+            // Apply subtle color correction
+            red = Math.round(red * saturation + (255 * (1 - saturation)));
+            green = Math.round(green * saturation + (255 * (1 - saturation)));
+            blue = Math.round(blue * saturation + (255 * (1 - saturation)));
+
+            return {
+                r: Math.min(255, Math.max(0, red)),
+                g: Math.min(255, Math.max(0, green)),
+                b: Math.min(255, Math.max(0, blue))
+            };
+        }
+
+        function updateLight() {
+            const brightness = document.getElementById('brightness').value;
+            const temperature = document.getElementById('temperature').value;
+            const intensity = document.getElementById('intensity').value;
+            const beamRadius = document.getElementById('beamRadius').value;
+            const beamAngle = document.getElementById('beamAngle').value;
+            const flickerRate = document.getElementById('flickerRate').value;
+
+            // Update value displays
+            document.getElementById('brightnessValue').textContent = `${brightness}%`;
+            document.getElementById('temperatureValue').textContent = `${temperature}K`;
+            document.getElementById('intensityValue').textContent = `${intensity}%`;
+            document.getElementById('beamRadiusValue').textContent = `${beamRadius}%`;
+            document.getElementById('beamAngleValue').textContent = `${beamAngle}°`;
+            document.getElementById('flickerRateValue').textContent = `${flickerRate} Hz`;
+
+            // Calculate light color
+            const rgb = kelvinToRGB(temperature);
+            
+            // Enhanced color blending
+            const normalizedIntensity = intensity / 100;
+            const normalizedBrightness = brightness / 100;
+            
+            // Apply gamma correction for more natural light appearance
+            const gamma = 2.2;
+            const r = Math.pow(rgb.r / 255, gamma) * 255;
+            const g = Math.pow(rgb.g / 255, gamma) * 255;
+            const b = Math.pow(rgb.b / 255, gamma) * 255;
+
+            // Create a subtle ambient glow effect
+            const glowIntensity = Math.min(normalizedIntensity * 1.2, 1);
+            const glowColor = `rgba(${r}, ${g}, ${b}, ${glowIntensity})`;
+            
+            // Apply the enhanced color
+            lightDisplay.style.backgroundColor = glowColor;
+            lightDisplay.style.boxShadow = `0 0 ${100 * normalizedIntensity}px ${50 * normalizedIntensity}px ${glowColor}`;
+            lightDisplay.style.filter = `brightness(${normalizedBrightness * 1.2})`;
+
+            // Handle flicker effect
+            clearInterval(flickerInterval);
+            if (flickerRate > 0) {
+                flickerInterval = setInterval(() => {
+                    const randomBrightness = Math.random() * 20 - 10; // ±10%
+                    lightDisplay.style.filter = `brightness(${Number(brightness) + randomBrightness}%)`;
+                }, 1000 / flickerRate);
+            }
+        }
+
+        // Add event listeners to all sliders
+        document.querySelectorAll('input[type="range"]').forEach(input => {
+            input.addEventListener('input', updateLight);
+        });
+
+        // Initial update
+        updateLight();
+
+        // Add this new fullscreen functionality
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        
+        fullscreenBtn.addEventListener('click', toggleFullscreen);
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+                document.body.classList.add('fullscreen');
+                fullscreenBtn.textContent = '⛶ Exit Fullscreen';
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+                document.body.classList.remove('fullscreen');
+                fullscreenBtn.textContent = '⛶ Fullscreen';
+            }
+        }
+
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                document.body.classList.remove('fullscreen');
+                fullscreenBtn.textContent = '⛶ Fullscreen';
+            }
+        });
+
+        function showControls() {
+            clearTimeout(controlsTimeout);
+            controlsWrapper.classList.add('visible');
+            controlsIndicator.classList.remove('hidden');
+            isControlsVisible = true;
+        }
+
+        function hideControls() {
+            if (!controlsWrapper.matches(':hover') && !controlsIndicator.matches(':hover')) {
+                controlsWrapper.classList.remove('visible');
+                controlsIndicator.classList.add('hidden');
+                isControlsVisible = false;
+            }
+        }
+
+        function startHideTimer() {
+            clearTimeout(controlsTimeout);
+            controlsTimeout = setTimeout(hideControls, 4000);
+        }
+
+        // Event listeners
+        document.addEventListener('mousemove', (e) => {
+            const mouseY = e.clientY;
+            const windowHeight = window.innerHeight;
+            const triggerArea = 100; // pixels from bottom
+
+            if (mouseY > windowHeight - triggerArea) {
+                showControls();
+            } else if (isControlsVisible && !controlsWrapper.matches(':hover')) {
+                startHideTimer();
+            }
+        });
+
+        controlsIndicator.addEventListener('mouseenter', () => {
+            showControls();
+            clearTimeout(controlsTimeout);
+        });
+
+        controlsWrapper.addEventListener('mouseenter', () => {
+            showControls();
+            clearTimeout(controlsTimeout);
+        });
+
+        controlsWrapper.addEventListener('mouseleave', () => {
+            startHideTimer();
+        });
+
+        // Reset controls visibility when interacting with sliders
+        document.querySelectorAll('input[type="range"]').forEach(slider => {
+            slider.addEventListener('input', () => {
+                showControls();
+                clearTimeout(controlsTimeout);
+            });
+        });
+
+        // Initial state
+        hideControls();
+
+        function applyPreset(presetName) {
+            const preset = presets[presetName];
+            if (!preset) return;
+
+            // Remove active class from all preset buttons
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Add active class to clicked button
+            document.querySelector(`[data-preset="${presetName}"]`).classList.add('active');
+
+            // Apply preset values with animation
+            Object.entries(preset).forEach(([key, value]) => {
+                const slider = document.getElementById(key);
+                if (slider) {
+                    // Animate the slider value change
+                    const startValue = parseInt(slider.value);
+                    const endValue = value;
+                    const duration = 500; // Animation duration in ms
+                    const startTime = performance.now();
+
+                    function animate(currentTime) {
+                        const elapsed = currentTime - startTime;
+                        const progress = Math.min(elapsed / duration, 1);
+
+                        // Easing function for smooth animation
+                        const easeProgress = 1 - Math.pow(1 - progress, 3);
+                        
+                        const currentValue = startValue + (endValue - startValue) * easeProgress;
+                        slider.value = currentValue;
+                        
+                        // Update the display
+                        updateLight();
+
+                        if (progress < 1) {
+                            requestAnimationFrame(animate);
+                        }
+                    }
+
+                    requestAnimationFrame(animate);
+                }
+            });
+        }
+
+        // Add click event listeners to preset buttons
+        document.querySelectorAll('.preset-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const presetName = e.target.dataset.preset;
+                applyPreset(presetName);
+            });
+        });
+
+        // Welcome overlay handling
+        document.addEventListener('DOMContentLoaded', () => {
+            const welcomeOverlay = document.getElementById('welcomeOverlay');
+            const startButton = document.getElementById('startButton');
+            const dontShowCheckbox = document.getElementById('dontShowAgain');
+            
+            // Check if user has chosen to not show the welcome screen
+            if (!localStorage.getItem('dontShowWelcome')) {
+                welcomeOverlay.classList.remove('hidden');
+            }
+
+            // Handle purpose buttons
+            document.querySelectorAll('.purpose-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const preset = e.currentTarget.dataset.preset;
+                    applyPreset(preset);
+                    closeWelcome();
+                });
+            });
+
+            startButton.addEventListener('click', closeWelcome);
+
+            function closeWelcome() {
+                welcomeOverlay.classList.add('hidden');
+                if (dontShowCheckbox.checked) {
+                    localStorage.setItem('dontShowWelcome', 'true');
+                }
+                showControlsHint();
+            }
+
+            // Show controls hint
+            function showControlsHint() {
+                const hint = document.createElement('div');
+                hint.className = 'controls-hint';
+                hint.textContent = '👆 Move mouse here to show controls';
+                document.body.appendChild(hint);
+
+                setTimeout(() => {
+                    hint.classList.add('visible');
+                }, 500);
+
+                setTimeout(() => {
+                    hint.classList.remove('visible');
+                    setTimeout(() => hint.remove(), 300);
+                }, 4000);
+            }
+        });
+
+        // Add this after your existing DOMContentLoaded event listener
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+        if (isMobile) {
+            // Create mobile toggle button
+            const controlsToggle = document.createElement('button');
+            controlsToggle.className = 'controls-toggle';
+            controlsToggle.innerHTML = '⚙️ Controls';
+            document.body.appendChild(controlsToggle);
+
+            // Disable auto-hide behavior on mobile
+            clearTimeout(controlsTimeout);
+
+            // Handle mobile controls toggle
+            controlsToggle.addEventListener('click', () => {
+                controlsWrapper.classList.toggle('visible');
+                controlsToggle.classList.toggle('active');
+            });
+
+            // Close controls when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!controlsWrapper.contains(e.target) && 
+                    !controlsToggle.contains(e.target) && 
+                    controlsWrapper.classList.contains('visible')) {
+                    controlsWrapper.classList.remove('visible');
+                    controlsToggle.classList.remove('active');
+                }
+            });
+
+            // Modify the showControlsHint function for mobile
+            const originalShowControlsHint = showControlsHint;
+            showControlsHint = function() {
+                if (isMobile) {
+                    const hint = document.createElement('div');
+                    hint.className = 'controls-hint';
+                    hint.textContent = '👆 Tap the Controls button to adjust settings';
+                    document.body.appendChild(hint);
+
+                    setTimeout(() => hint.classList.add('visible'), 500);
+                    setTimeout(() => {
+                        hint.classList.remove('visible');
+                        setTimeout(() => hint.remove(), 300);
+                    }, 4000);
+                } else {
+                    originalShowControlsHint();
+                }
+            };
+        }
+    </script>
+</body>
+</html> 

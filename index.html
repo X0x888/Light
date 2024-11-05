@@ -190,6 +190,146 @@
             background-color: rgba(255, 255, 255, 0.3);
             box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
         }
+
+        .welcome-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+
+        .welcome-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .welcome-content {
+            background: rgba(42, 42, 42, 0.9);
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 600px;
+            width: 90%;
+            text-align: center;
+            color: white;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+        }
+
+        .welcome-content h1 {
+            margin: 0 0 10px 0;
+            font-size: 2em;
+        }
+
+        .welcome-content p {
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 30px;
+        }
+
+        .quick-start {
+            margin: 30px 0;
+        }
+
+        .purpose-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .purpose-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            padding: 15px;
+            border-radius: 10px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .purpose-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .purpose-description {
+            font-size: 0.8em;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .instructions {
+            text-align: left;
+            margin: 30px 0;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        .instructions ul {
+            margin: 0;
+            padding-left: 20px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .instructions li {
+            margin: 10px 0;
+        }
+
+        .start-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 20px 0;
+        }
+
+        .start-btn:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        .dont-show {
+            display: block;
+            margin-top: 15px;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.9em;
+        }
+
+        /* Add a hint for controls */
+        .controls-hint {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px 20px;
+            border-radius: 20px;
+            color: white;
+            font-size: 0.9em;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .controls-hint.visible {
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
@@ -251,6 +391,45 @@
                 <label for="flickerRate">Flicker Rate: <span id="flickerRateValue" class="value-display">0 Hz</span></label>
                 <input type="range" id="flickerRate" min="0" max="30" value="0" step="0.1">
             </div>
+        </div>
+    </div>
+
+    <div id="welcomeOverlay" class="welcome-overlay">
+        <div class="welcome-content">
+            <h1>🌟 Welcome to LightSource</h1>
+            <p>Your browser-based lighting solution</p>
+            
+            <div class="quick-start">
+                <h2>What would you like to do?</h2>
+                <div class="purpose-buttons">
+                    <button class="purpose-btn" data-preset="reading">
+                        📚 Reading Light
+                        <span class="purpose-description">Optimal brightness for reading</span>
+                    </button>
+                    <button class="purpose-btn" data-preset="video">
+                        📹 Video Recording
+                        <span class="purpose-description">Perfect for short videos</span>
+                    </button>
+                    <button class="purpose-btn" data-preset="warm">
+                        🌅 Ambient Light
+                        <span class="purpose-description">Cozy atmosphere</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="instructions">
+                <h3>💡 Quick Tips:</h3>
+                <ul>
+                    <li>Move your mouse to the bottom to show controls</li>
+                    <li>Click ⛶ for fullscreen mode</li>
+                    <li>Use presets or adjust sliders for custom lighting</li>
+                </ul>
+            </div>
+
+            <button id="startButton" class="start-btn">Get Started</button>
+            <label class="dont-show">
+                <input type="checkbox" id="dontShowAgain"> Don't show this again
+            </label>
         </div>
     </div>
 
@@ -559,6 +738,54 @@
                 const presetName = e.target.dataset.preset;
                 applyPreset(presetName);
             });
+        });
+
+        // Welcome overlay handling
+        document.addEventListener('DOMContentLoaded', () => {
+            const welcomeOverlay = document.getElementById('welcomeOverlay');
+            const startButton = document.getElementById('startButton');
+            const dontShowCheckbox = document.getElementById('dontShowAgain');
+            
+            // Check if user has chosen to not show the welcome screen
+            if (!localStorage.getItem('dontShowWelcome')) {
+                welcomeOverlay.classList.remove('hidden');
+            }
+
+            // Handle purpose buttons
+            document.querySelectorAll('.purpose-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const preset = e.currentTarget.dataset.preset;
+                    applyPreset(preset);
+                    closeWelcome();
+                });
+            });
+
+            startButton.addEventListener('click', closeWelcome);
+
+            function closeWelcome() {
+                welcomeOverlay.classList.add('hidden');
+                if (dontShowCheckbox.checked) {
+                    localStorage.setItem('dontShowWelcome', 'true');
+                }
+                showControlsHint();
+            }
+
+            // Show controls hint
+            function showControlsHint() {
+                const hint = document.createElement('div');
+                hint.className = 'controls-hint';
+                hint.textContent = '👆 Move mouse here to show controls';
+                document.body.appendChild(hint);
+
+                setTimeout(() => {
+                    hint.classList.add('visible');
+                }, 500);
+
+                setTimeout(() => {
+                    hint.classList.remove('visible');
+                    setTimeout(() => hint.remove(), 300);
+                }, 4000);
+            }
         });
     </script>
 </body>

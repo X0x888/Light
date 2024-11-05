@@ -484,6 +484,120 @@
                 transform: scale(0.95);
             }
         }
+
+        /* Improved fullscreen handling specifically for mobile */
+        function toggleFullscreen() {
+            const elem = document.documentElement;
+            
+            try {
+                if (!document.fullscreenElement && 
+                    !document.webkitFullscreenElement && 
+                    !document.mozFullScreenElement) {
+                    
+                    // Try all possible methods
+                    if (elem.requestFullscreen) {
+                        elem.requestFullscreen();
+                    } else if (elem.webkitRequestFullscreen) {
+                        elem.webkitRequestFullscreen();
+                    } else if (elem.mozRequestFullScreen) {
+                        elem.mozRequestFullScreen();
+                    } else if (elem.msRequestFullscreen) {
+                        elem.msRequestFullscreen();
+                    } else if (elem.webkitEnterFullscreen) { // For iOS Safari
+                        elem.webkitEnterFullscreen();
+                    }
+                    
+                    // Force screen orientation to landscape if possible
+                    if (screen.orientation && screen.orientation.lock) {
+                        screen.orientation.lock('landscape').catch(() => {
+                            // Ignore if orientation lock fails
+                        });
+                    }
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    } else if (document.webkitExitFullscreen) {
+                        document.webkitExitFullscreen();
+                    } else if (document.mozCancelFullScreen) {
+                        document.mozCancelFullScreen();
+                    } else if (document.msExitFullscreen) {
+                        document.msExitFullscreen();
+                    }
+                }
+            } catch (err) {
+                console.log('Fullscreen not supported on this device');
+            }
+        }
+
+        // Update the fullscreen button to be more mobile-friendly
+        document.getElementById('fullscreenBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Add haptic feedback for mobile devices
+            if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
+            
+            toggleFullscreen();
+        });
+
+        // Add specific styles for mobile fullscreen button
+        const mobileFullscreenStyles = `
+            @media (max-width: 768px) {
+                #fullscreenBtn {
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    width: 48px;
+                    height: 48px;
+                    background: rgba(42, 42, 42, 0.9);
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    backdrop-filter: blur(5px);
+                    border: none;
+                    color: white;
+                    font-size: 24px;
+                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+                    z-index: 998;
+                    touch-action: manipulation;
+                    -webkit-tap-highlight-color: transparent;
+                }
+                
+                #fullscreenBtn:active {
+                    background: rgba(62, 62, 62, 0.95);
+                    transform: scale(0.95);
+                }
+                
+                /* Hide button if not supported */
+                #fullscreenBtn.not-supported {
+                    display: none;
+                }
+            }
+        `;
+
+        // Add the styles to document
+        const styleSheet = document.createElement("style");
+        styleSheet.textContent = mobileFullscreenStyles;
+        document.head.appendChild(styleSheet);
+
+        // Check fullscreen support on load
+        document.addEventListener('DOMContentLoaded', () => {
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
+            
+            // Check if fullscreen is supported
+            const isFullscreenSupported = document.documentElement.requestFullscreen || 
+                                         document.documentElement.webkitRequestFullscreen || 
+                                         document.documentElement.mozRequestFullScreen || 
+                                         document.documentElement.msRequestFullscreen || 
+                                         document.documentElement.webkitEnterFullscreen;
+            
+            if (!isFullscreenSupported) {
+                fullscreenBtn.classList.add('not-supported');
+            }
+        });
     </style>
 </head>
 <body>

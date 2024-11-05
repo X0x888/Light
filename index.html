@@ -333,35 +333,6 @@
 
         /* Add these mobile-specific styles */
         @media (max-width: 768px) {
-            .controls-toggle {
-                display: flex;
-                position: fixed;
-                bottom: 30px;
-                left: 50%;
-                transform: translateX(-50%);
-                background: rgba(42, 42, 42, 0.9);
-                padding: 12px 25px;
-                border-radius: 25px;
-                color: white;
-                border: none;
-                z-index: 1000;
-                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-                backdrop-filter: blur(10px);
-                align-items: center;
-                gap: 8px;
-                font-size: 16px;
-                cursor: pointer;
-            }
-
-            .controls-toggle.active {
-                background: rgba(62, 62, 62, 0.95);
-                box-shadow: 0 2px 15px rgba(255, 255, 255, 0.1);
-            }
-
-            .toggle-icon {
-                font-size: 20px;
-            }
-
             .controls-wrapper {
                 position: fixed;
                 bottom: 0;
@@ -370,36 +341,89 @@
                 transform: translateY(100%);
                 transition: transform 0.3s ease;
                 z-index: 999;
-            }
-
-            .controls-wrapper.visible {
-                transform: translateY(0);
+                touch-action: pan-x pan-y;
             }
 
             .controls {
                 background: rgba(42, 42, 42, 0.95);
-                border-radius: 15px 15px 0 0;
+                border-radius: 20px 20px 0 0;
                 padding: 20px;
                 margin: 0;
                 box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
             }
 
-            /* Make sliders more touch-friendly */
+            /* Add drag indicator */
+            .controls::before {
+                content: '';
+                display: block;
+                width: 40px;
+                height: 4px;
+                background: rgba(255, 255, 255, 0.3);
+                border-radius: 2px;
+                margin: -10px auto 15px;
+            }
+
+            .controls-toggle {
+                display: flex;
+                position: fixed;
+                bottom: 30px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(42, 42, 42, 0.95);
+                padding: 15px 25px;
+                border-radius: 25px;
+                border: none;
+                z-index: 1000;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+                transition: all 0.3s ease;
+            }
+
+            .toggle-content {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 5px;
+            }
+
+            .toggle-icon {
+                font-size: 24px;
+            }
+
+            .toggle-text {
+                color: white;
+                font-size: 16px;
+            }
+
+            .toggle-hint {
+                color: rgba(255, 255, 255, 0.6);
+                font-size: 12px;
+            }
+
+            /* Enhanced slider styles */
             input[type="range"] {
-                height: 30px;
-                margin: 15px 0;
-                -webkit-appearance: none;
+                height: 40px;
+                margin: 10px 0;
                 background: rgba(255, 255, 255, 0.1);
-                border-radius: 15px;
+                border-radius: 20px;
+                transition: all 0.2s ease;
+            }
+
+            input[type="range"].active {
+                background: rgba(255, 255, 255, 0.2);
+                transform: scale(1.02);
             }
 
             input[type="range"]::-webkit-slider-thumb {
-                -webkit-appearance: none;
-                width: 28px;
-                height: 28px;
+                width: 30px;
+                height: 30px;
                 background: white;
                 border-radius: 50%;
                 box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+                transition: transform 0.2s ease;
+            }
+
+            input[type="range"]::-webkit-slider-thumb:active {
+                transform: scale(1.1);
             }
 
             /* Adjust tooltips for mobile */
@@ -897,60 +921,107 @@
         document.addEventListener('DOMContentLoaded', () => {
             const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
             const controlsWrapper = document.querySelector('.controls-wrapper');
-            const welcomeOverlay = document.getElementById('welcomeOverlay');
-
+            
             if (isMobile) {
-                // Prevent default controls behavior
+                // Initialize controls in hidden state
                 controlsWrapper.style.transform = 'translateY(100%)';
                 
-                // Create mobile toggle button
+                // Create a more intuitive mobile toggle button
                 const controlsToggle = document.createElement('button');
                 controlsToggle.className = 'controls-toggle';
                 controlsToggle.innerHTML = `
-                    <span class="toggle-icon">⚙️</span>
-                    <span class="toggle-text">Adjust Light</span>
+                    <div class="toggle-content">
+                        <span class="toggle-icon">⚙️</span>
+                        <span class="toggle-text">Adjust Light</span>
+                        <span class="toggle-hint">↑ Swipe up to adjust</span>
+                    </div>
                 `;
                 document.body.appendChild(controlsToggle);
 
-                // Disable desktop behaviors
-                if (typeof controlsTimeout !== 'undefined') {
-                    clearTimeout(controlsTimeout);
-                }
-                if (typeof showControlsHint === 'function') {
-                    showControlsHint = () => {}; // Disable default hint
+                // Add swipe handling
+                let startY = 0;
+                let currentY = 0;
+                let isDragging = false;
+
+                // Touch event handlers
+                controlsWrapper.addEventListener('touchstart', handleTouchStart, { passive: true });
+                controlsWrapper.addEventListener('touchmove', handleTouchMove, { passive: false });
+                controlsWrapper.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+                // Handle touch start
+                function handleTouchStart(e) {
+                    startY = e.touches[0].clientY;
+                    isDragging = true;
+                    controlsWrapper.style.transition = 'none';
                 }
 
-                // Improved mobile controls handling
+                // Handle touch move
+                function handleTouchMove(e) {
+                    if (!isDragging) return;
+                    
+                    currentY = e.touches[0].clientY;
+                    const deltaY = currentY - startY;
+                    
+                    // Only allow dragging down when panel is open
+                    if (controlsWrapper.classList.contains('visible') && deltaY > 0) {
+                        const transform = Math.min(deltaY, controlsWrapper.offsetHeight);
+                        controlsWrapper.style.transform = `translateY(${transform}px)`;
+                        e.preventDefault();
+                    }
+                }
+
+                // Handle touch end
+                function handleTouchEnd() {
+                    if (!isDragging) return;
+                    
+                    isDragging = false;
+                    controlsWrapper.style.transition = 'transform 0.3s ease';
+                    
+                    const deltaY = currentY - startY;
+                    
+                    if (deltaY > 70) { // Threshold for closing
+                        closeControls();
+                    } else {
+                        openControls();
+                    }
+                }
+
+                // Open controls panel
+                function openControls() {
+                    controlsWrapper.style.transform = 'translateY(0)';
+                    controlsWrapper.classList.add('visible');
+                    controlsToggle.classList.add('active');
+                }
+
+                // Close controls panel
+                function closeControls() {
+                    controlsWrapper.style.transform = 'translateY(100%)';
+                    controlsWrapper.classList.remove('visible');
+                    controlsToggle.classList.remove('active');
+                }
+
+                // Toggle button click handler
                 controlsToggle.addEventListener('click', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     
                     if (controlsWrapper.classList.contains('visible')) {
-                        controlsWrapper.style.transform = 'translateY(100%)';
-                        controlsWrapper.classList.remove('visible');
-                        controlsToggle.classList.remove('active');
+                        closeControls();
                     } else {
-                        controlsWrapper.style.transform = 'translateY(0)';
-                        controlsWrapper.classList.add('visible');
-                        controlsToggle.classList.add('active');
+                        openControls();
                     }
                 });
 
-                // Handle outside clicks
-                document.addEventListener('click', (e) => {
-                    if (!controlsWrapper.contains(e.target) && 
-                        !controlsToggle.contains(e.target) && 
-                        controlsWrapper.classList.contains('visible')) {
-                        controlsWrapper.style.transform = 'translateY(100%)';
-                        controlsWrapper.classList.remove('visible');
-                        controlsToggle.classList.remove('active');
-                    }
+                // Optimize slider interaction
+                document.querySelectorAll('input[type="range"]').forEach(slider => {
+                    slider.addEventListener('touchstart', () => {
+                        slider.classList.add('active');
+                    });
+                    
+                    slider.addEventListener('touchend', () => {
+                        slider.classList.remove('active');
+                    });
                 });
-
-                // Prevent any default hover behaviors
-                document.removeEventListener('mousemove', showControls);
-                controlsWrapper.removeEventListener('mouseenter', showControls);
-                controlsWrapper.removeEventListener('mouseleave', hideControls);
             }
         });
     </script>
